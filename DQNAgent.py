@@ -1,24 +1,25 @@
 import collections
 import math
-import os
 import random
 from operator import add
 
 import numpy as np
 import pandas as pd
-from Game.Player import Direction
-from keras.layers import Dense
+from keras.layers.core import Dense
 from keras.models import Sequential
-from keras.optimizer_v2.adam import Adam
-from keras.utils.np_utils import to_categorical
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+from Game.Player import Direction
+
+
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 # Action:
 #   [1, 0, 0] - продолжать движение по направлению
-#   [0, 1, 0] - повернуть налево
-#   [0, 0, 1] - повернуть направо
+#   [0, 1, 0] - повернуть направо
+#   [0, 0, 1] - повернуть налево
 
 def checkRight(player, game):
     return (list(map(add, player.position[-1], [player.pos_change, 0])) in player.position) or (  # либо справа игрок
@@ -40,6 +41,20 @@ def checkDown(player, game):
     return (list(map(add, player.position[-1], [0, player.pos_change])) in player.position) or (  # либо снизу игрок
             player.position[-1][-1] + player.pos_change > game.border_size + (  # либо снизу стена
             (math.floor(game.height / game.block_size) - 1) * game.block_size))
+
+
+def getTailDirection(player):
+    if len(player.position) <= 2:
+        return player.direction
+    else:
+        if player.position[0][0] < player.position[1][0]:
+            return Direction.RIGHT
+        elif player.position[0][0] > player.position[1][0]:
+            return Direction.LEFT
+        elif player.position[0][1] > player.position[1][1]:
+            return Direction.UP
+        else:
+            return Direction.DOWN
 
 
 class DQNAgent:
@@ -65,10 +80,10 @@ class DQNAgent:
 
     def createNetwork(self):
         model = Sequential()
-        model.add(Dense(units=self.layer_1, activation='relu', input_shape=(11,)))
+        model.add(Dense(units=self.layer_1, activation='relu', input_shape=(15,)))
         model.add(Dense(units=self.layer_2, activation='relu'))
         model.add(Dense(units=self.layer_3, activation='relu'))
-        model.add(Dense(units=3, activation='softmax'))
+        model.add(Dense(units=3, activation='linear'))
         adam = Adam(self.learning_rate)
         model.compile(loss='mse', optimizer=adam)
 
@@ -79,6 +94,7 @@ class DQNAgent:
         return model
 
     def getState(self, game, player, food):
+        tail_direction = getTailDirection(player)
         state = [
             # опасность по направлению движения
             (player.direction == Direction.RIGHT and (checkRight(player, game)))  # сейчас двигаемся вправо
@@ -98,6 +114,12 @@ class DQNAgent:
             or (player.direction == Direction.RIGHT and (checkUp(player, game)))  # сейчас двигаемся влево
             or (player.direction == Direction.LEFT and (checkDown(player, game))),  # сейчас двигаемся вправо
 
+            # направление хвоста
+            tail_direction == Direction.LEFT,
+            tail_direction == Direction.RIGHT,
+            tail_direction == Direction.UP,
+            tail_direction == Direction.DOWN,
+
             player.direction == Direction.LEFT,  # движение влево
             player.direction == Direction.RIGHT,  # движение вправо
             player.direction == Direction.UP,  # движение вверх
@@ -108,12 +130,6 @@ class DQNAgent:
             food.pos_y < player.pos_y,  # еда находится выше
             food.pos_y > player.pos_y,  # еда находится ниже
         ]
-
-        # for i in range(len(state)):
-        #     if state[i]:
-        #         state[i] = 1
-        #     else:
-        #         state[i] = 0
 
         return np.array(state, dtype=int)
 
@@ -134,30 +150,28 @@ class DQNAgent:
         return self.reward
 
     def trainMemoryLong(self):
-        print('TRAIN MEMORY LONG')
         if len(self.memory) > self.batch_size:
             mini_sample = random.sample(self.memory, self.batch_size)
         else:
             mini_sample = self.memory
 
         for state, action, reward, next_state, game_over in mini_sample:
-            # self.trainMemoryShort(state, action, reward, next_state, game_over)
-            target = reward
+            prediction_new_Q = reward
             if not game_over:
-                target = reward + self.gamma * np.amax(self.model.predict(np.array([next_state]))[0])
-            target_f = self.model.predict(np.array([state]))
-            target_f[0][np.argmax(action)] = target
-            self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
+                prediction_new_Q = reward + self.gamma * np.amax(self.model.predict(np.array([next_state]))[0])
+            prediction_Q = self.model.predict(np.array([state]))
+            prediction_Q[0][np.argmax(action)] = prediction_new_Q
+            self.model.fit(np.array([state]), prediction_Q, epochs=1, verbose=0)
 
     def trainMemoryShort(self, state, action, reward, nextState, gameOver):
-        target = reward
+        prediction_new_Q = reward
 
         if not gameOver:
-            target = reward + self.gamma * np.amax(self.model.predict(nextState.reshape((1, 11)))[0])
+            prediction_new_Q = reward + self.gamma * np.amax(self.model.predict(nextState.reshape((1, 15)))[0])
 
-        target_f = self.model.predict(state.reshape((1, 11)))
-        target_f[0][np.argmax(action)] = target
-        self.model.fit(state.reshape((1, 11)), target_f, epochs=1, verbose=0)
+        prediction_Q = self.model.predict(state.reshape((1, 15)))
+        prediction_Q[0][np.argmax(action)] = prediction_new_Q
+        self.model.fit(state.reshape((1, 15)), prediction_Q, epochs=1, verbose=0)
 
     def getAction(self, state, gameCounter):
         if not self.is_train:
@@ -171,7 +185,7 @@ class DQNAgent:
             move = np.array(to_categorical(random.randint(0, 2), num_classes=3), dtype=int)
         else:
             # выполняем действие, предсказанное по состоянию
-            prediction = self.model.predict(state.reshape((1, 11)))
+            prediction = self.model.predict(state.reshape((1, 15)))
             move = np.array(to_categorical(np.argmax(prediction[0]), num_classes=3), dtype=int)
 
         return move

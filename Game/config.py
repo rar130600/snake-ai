@@ -18,24 +18,25 @@ def createConfig():
     config['SNAKE_IMAGE_HEAD'] = './images/snakeGreen.png'
     config['SNAKE_IMAGE_TAIL'] = './images/snakeYellow.png'
     config['BACKGROUND_IMAGE'] = './images/background.png'
-    config['SPEED'] = 0
+    config['SPEED'] = 75
     config['DISPLAY'] = True
-    config['AVAILABLE_EMPTY_STEPS'] = 100
     config['GAME_OVER_TIME'] = 0
     config['GAME_WIN_TIME'] = 1000
 
     # AI
     config['IS_AI'] = True
-    config['EPSILON_DECAY_LINEAR'] = 1 / 75
-    config['LEARNING_RATE'] = 0.0005  # скорость обучения
-    config['LAYER_1_SIZE'] = 50  # количество нейронов в первом слое
-    config['LAYER_2_SIZE'] = 300  # количество нейронов во втором слое
-    config['LAYER_3_SIZE'] = 50  # количество нейронов в третьем слое
-    config['EPISODES'] = 100  # количество эпох
-    config['MEMORY_SIZE'] = 2500  # количество памяти
+    config['EPSILON_DECAY_LINEAR'] = 1 / 500
+    config['LEARNING_RATE'] = 0.0001  # скорость обучения
+    config['LAYER_1_SIZE'] = 128  # количество нейронов в первом слое
+    config['LAYER_2_SIZE'] = 64  # количество нейронов во втором слое
+    config['LAYER_3_SIZE'] = 32  # количество нейронов в третьем слое
+    config['EPOCHS'] = 1000  # количество эпох
+    config['MEMORY_SIZE'] = 3500  # количество памяти
     config['BATCH_SIZE'] = 1000  # размер одного пакета
-    config['WEIGHTS_PATH'] = 'weights/weights1.hdf5'  # путь до сохраненных весов
-    config['LOAD_WEIGHTS'] = False  # загрузить сохраненные веса
-    config['TRAIN'] = True  # тренеровать модель
+    config['WEIGHTS_PATH'] = 'weights/weights5.hdf5'  # путь до сохраненных весов
+    config['LOAD_WEIGHTS'] = True  # загрузить сохраненные веса
+    config['SAVE_WEIGHTS'] = False  # сохранять веса
+    config['TRAIN'] = False  # тренеровать модель
     config['PLOT_SCORE'] = True  # вывод графиков
+    config['PLOT_SCORE_EVERY_GAME'] = False  # вывод графиков после каждой игры
     return config

@@ -1,55 +1,28 @@
-import numpy as np
 import pygame
-import seaborn as sns
+from IPython import display
+from matplotlib import pyplot as plt
+
 from DQNAgent import DQNAgent
 from Game.Game import Game
 from Game.Player import Direction
 from Game.config import createConfig
 from Game.utils import render, getMeanAndStdev
-from matplotlib import pyplot as plt
+
+plt.ion()
 
 
-def initAIGame(game, player, food, agent):
-    state_old = agent.getState(game, player, food)
-    action = [1, 0, 0]
-    direction = agent.getNewPlayerDirectionFromAction(player, action)
-    player_is_eaten = player.move(direction, game, food)
-    state_new = agent.getState(game, player, food)
-    reward = agent.getReward(player_is_eaten, game.game_over, game.game_win)
-    agent.remember(state_old, action, reward, state_new, game.game_over)
-    agent.trainMemoryLong()
-
-
-def test(configObject):
-    configObject['LOAD_WEIGHTS'] = True
-    configObject['TRAIN'] = False
-    run(configObject)
-
-
-def drawPlot(plotCounter, plotScore, isTrain):
-    sns.set(color_codes=True, font_scale=1.5)
-    sns.set_style("white")
-    plt.figure(figsize=(13, 8))
-    fit_reg = True
-    if not isTrain:
-        fit_reg = False
-    ax = sns.regplot(
-        np.array([plotCounter])[0],
-        np.array([plotScore])[0],
-        # color="#36688D",
-        x_jitter=.1,
-        scatter_kws={ "color": "#36688D" },
-        label='Data',
-        fit_reg=fit_reg,
-        line_kws={ "color": "#F49F05" }
-    )
-    # Plot the average line
-    y_mean = [np.mean(plotScore)] * len(plotCounter)
-    ax.plot(plotCounter, y_mean, label='Mean', linestyle='--')
-    ax.legend(loc='upper right')
-    ax.set(xlabel='Номер игры', ylabel='Количество набранных очков')
-    plt.ylim(0, 65)
-    plt.show()
+def drawPlot(plotCounter, plotScore, plotMean):
+    display.clear_output(wait=True)
+    display.display(plt.gcf())
+    plt.clf()
+    plt.xlabel('Number of Games')
+    plt.ylabel('Score')
+    plt.plot(plotCounter, plotScore)
+    plt.plot(plotCounter, plotMean)
+    plt.ylim(ymin=0)
+    plt.xlim(xmin=0)
+    plt.legend(loc='upper right')
+    plt.show(block=False)
 
 
 def run(configObject):
@@ -60,8 +33,12 @@ def run(configObject):
     game_counter = 0
     plot_score = []
     plot_counter = []
+    plot_mean = []
 
-    while game_counter < configObject['EPISODES']:
+    best_model_score = []
+    best_model_game_number = []
+
+    while game_counter < configObject['EPOCHS']:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -72,18 +49,14 @@ def run(configObject):
         player = game.player
         food = game.food
 
-        if configObject['IS_AI']:
-            # initAIGame(game, player, food, agent)
-            print()
-        else:
+        if not configObject['IS_AI']:
             player.direction = Direction.NOPE
 
         if configObject['DISPLAY']:
             render(game, player, food, best_score)
-            
-        print('GAME OVER BEFORE = ', game.game_over)
 
-        while not game.game_over:  # and (emptySteps < config['AVAILABLE_EMPTY_STEPS']):
+        new_best_score = best_score
+        while not game.game_over:
             if not configObject['IS_AI']:
                 direction = player.direction
                 for event in pygame.event.get():
@@ -115,33 +88,44 @@ def run(configObject):
                     # сохраняем новые данные в долговременной памяти
                     agent.remember(state_old, action, reward, state_new, game.game_over)
 
-            if best_score < game.score:
-                best_score = game.score
+            if new_best_score < game.score:
+                new_best_score = game.score
 
             if configObject['DISPLAY']:
-                render(game, player, food, best_score)
+                render(game, player, food, new_best_score)
                 pygame.time.wait(configObject['SPEED'])
-
-        print('GAME OVER AFTER = ', game.game_over)
 
         if configObject['TRAIN']:
             agent.trainMemoryLong()
+
+        if configObject['TRAIN'] and configObject['WEIGHTS_PATH'] and configObject[
+            'SAVE_WEIGHTS'] and game.score >= best_score:
+            agent.model.save_weights(configObject['WEIGHTS_PATH'])
+
+        if new_best_score > best_score:
+            best_model_score.append(new_best_score)
+            best_model_game_number.append(game_counter)
+
+        best_score = new_best_score
 
         game_counter += 1
         total_score += game.score
         print(f'Game {game_counter},    Score: {game.score}')
         plot_score.append(game.score)
         plot_counter.append(game_counter)
+        plot_mean.append(total_score / game_counter)
+
+        if config['PLOT_SCORE_EVERY_GAME'] and game_counter > 1:
+            drawPlot(plot_counter, plot_score, plot_mean)
 
     mean, stdev = getMeanAndStdev(plot_score)
-    if configObject['TRAIN'] and configObject['WEIGHTS_PATH']:
-        agent.model.save_weights(configObject['WEIGHTS_PATH'])
-        test(configObject)
 
     if configObject['PLOT_SCORE']:
-        drawPlot(plot_counter, plot_score, configObject['TRAIN'])
+        drawPlot(plot_counter, plot_score, plot_mean)
 
     print(f'Total Score = {total_score}, Mean = {mean}, Stdev = {stdev}')
+    print('Best Model score: ', best_model_score)
+    print('Best Model game number: ', best_model_game_number)
 
 
 if __name__ == '__main__':

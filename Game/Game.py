@@ -18,11 +18,12 @@ class Game:
             ((self.border_size * 2) + self.width, (self.border_size * 2) + self.height + self.info_height)
         )
 
-        self.screen = pygame.display.set_mode(
-            (self.width + (self.border_size * 2),
-             self.height + (self.border_size * 2) + self.info_height)
-        )  # создание экрана с размером окна
-        self.screen.fill(COLOR_WHITE)
+        if config['DISPLAY']:
+            self.screen = pygame.display.set_mode(
+                (self.width + (self.border_size * 2),
+                 self.height + (self.border_size * 2) + self.info_height)
+            )  # создание экрана с размером окна
+            self.screen.fill(COLOR_WHITE)
 
         self.player = Player(
             self.width, self.height, COLOR_GREEN, self.block_size, self.border_size, config['SNAKE_IMAGE_HEAD'],

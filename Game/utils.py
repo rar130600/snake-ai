@@ -3,6 +3,7 @@ import statistics
 from random import randint
 
 import pygame.display
+
 from Game.config import COLOR_BLACK, COLOR_WHITE
 
 
@@ -24,18 +25,17 @@ def renderUi(game, bestScore):
     text_best_score = my_font_bold.render('BEST SCORE: ', True, COLOR_BLACK)
     text_best_score_value = my_font_bold.render(str(bestScore), True, COLOR_BLACK)
 
-    # game.screen.blit(game.background, (0, 0))
     pygame.draw.rect(
         game.screen, COLOR_BLACK,
         pygame.Rect(game.border_size, game.border_size, game.width, game.height)
     )
-    game.screen.blit(text_score, (game.border_size, (game.border_size * 2) + game.height + 5))
-    game.screen.blit(text_score_value, (game.border_size + 70, (game.border_size * 2) + game.height + 5))
+    game.screen.blit(text_score, (game.border_size + 20, (game.border_size) + game.height))
+    game.screen.blit(text_score_value, (game.border_size + 90, (game.border_size) + game.height))
     game.screen.blit(
-        text_best_score, ((game.border_size * 2) + game.width - 190, (game.border_size * 2) + game.height + 5)
+        text_best_score, (game.border_size + 20, (game.border_size * 2) + game.height + 10)
     )
     game.screen.blit(
-        text_best_score_value, ((game.border_size * 2) + game.width - 65, (game.border_size * 2) + game.height + 5)
+        text_best_score_value, (game.border_size + 150, (game.border_size * 2) + game.height + 10)
     )
 
 
